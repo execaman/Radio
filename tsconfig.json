@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "strict": true,
+    "useUnknownInCatchVariables": false,
+    "module": "NodeNext",
+    "rootDir": "./src",
+    "noEmitOnError": true,
+    "outDir": "./lib",
+    "target": "ESNext",
+    "skipLibCheck": true
+  }
+}
