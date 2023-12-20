@@ -1,10 +1,12 @@
 interface Stream {
-  name: string; // name of this stream
-  link: string; // link to page of this stream
-  url: string; // supported direct url to stream
+  name: string; // stream name
+  link: string; // stream page
+  url: string; // stream url
 }
 export type { Stream };
 
-export const channelId = "";
-export const token = "";
-export const streams: Stream[] = [];
+export const channelId = ""; // guild voice channel id
+export const token = ""; // discord bot token
+export const ilovemusic = true; // whether to include channels from ilovemusic.de
+
+export const streams: Stream[] = []; // add stream objects inside
