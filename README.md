@@ -20,6 +20,8 @@ This is a reliable 24/7 discord bot that streams from [ilovemusic.de](https://il
 
 ## Configuration
 
-- Configure the bot from [`./src/config.mts`](./src/config.mts)
+- Configure the bot from [`./src/config.mts`](./src/config.mts) or [`./lib/config.mjs`](./lib/config.mjs)
 
 - If you're familiar with ts, go for it, simple js in esm is available otherwise.
+
+- If you have your own streaming source(s) and don't want ilovemusic channels, simply set `ilovemusic` in config to false.
