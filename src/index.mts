@@ -163,7 +163,7 @@ client.once(Discord.Events.ClientReady, async () => {
   const message = (
     await channel.messages.fetch({ limit: 1, cache: false })
   ).first();
-  if (!message) await channel.send({ components: components() });
+  if (!message || message.author.id !== client.user.id) await channel.send({ components: components() });
   else
     await message.edit({
       content: "",
