@@ -4,7 +4,7 @@
 
 ## Radio
 
-This is a reliable 24/7 discord bot that streams from [ilovemusic.de](https://ilovemusic.de/streams/), including any supported direct link to streams you provide manually!
+This is a reliable 24/7 discord bot that streams from [ilovemusic.de](https://ilovemusic.de/streams/) by default, including any supported direct stream links you provide manually. If you use a service like centova, shoutcast, or icecast and the stream doesn't work, try configuring your stream or using a different streaming format.
 
 ### Pros
 
