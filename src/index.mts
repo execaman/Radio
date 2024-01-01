@@ -4,7 +4,7 @@ import * as config from "./config.mjs";
 import stream from "./stream.mjs";
 import Queue from "./queue.mjs";
 
-const client = new Discord.Client({
+const client = new Discord.Client<true>({
   intents: [Discord.GatewayIntentBits.GuildVoiceStates],
   partials: [
     Discord.Partials.Channel,
@@ -68,7 +68,8 @@ const components = () => [
           .setLabel(stream.name)
           .setValue(index.toString());
         if (index === streams.index) option.setDefault(true);
-        if (options.at(-1)!.length < 25) options.at(-1)!.push(option);
+        if (options[options.length - 1].length < 25)
+          options[options.length - 1].push(option);
         else options.push([option]);
         return options;
       },
@@ -151,19 +152,14 @@ const joinVoiceChannel = async () => {
 };
 
 client.once(Discord.Events.ClientReady, async () => {
-  client.on(Discord.Events.Debug, async (message) => {
-    console.log(message);
-    if (client.isReady()) return;
-    await client.destroy();
-    process.kill(1);
-  });
   const channel = await client.channels.fetch(config.channelId);
   if (!channel || channel.type !== Discord.ChannelType.GuildVoice)
     throw new Error("Not a valid voice channel");
   const message = (
     await channel.messages.fetch({ limit: 1, cache: false })
   ).first();
-  if (!message || message.author.id !== client.user.id) await channel.send({ components: components() });
+  if (!message || message.author.id !== client.user!.id)
+    await channel.send({ components: components() });
   else
     await message.edit({
       content: "",
@@ -189,4 +185,5 @@ client.on(Discord.Events.InteractionCreate, async (i) => {
   await (i as any).editReply({ components: components() });
 });
 
+client.on(Discord.Events.Debug, console.log);
 client.login(config.token);
