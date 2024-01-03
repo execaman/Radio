@@ -171,11 +171,7 @@ client.once(Discord.Events.ClientReady, async () => {
 });
 
 client.on(Discord.Events.InteractionCreate, async (i) => {
-  if (
-    config.roles &&
-    !(i.member as Discord.GuildMember).roles.cache.hasAny(...config.roles)
-  )
-    return;
+  if (config.users.length !== 0 && !config.users.includes(i.user.id)) return;
   player.stop(true);
   await (i as any).deferUpdate();
   player.play(
