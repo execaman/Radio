@@ -24,6 +24,6 @@ This is a reliable 24/7 discord bot that streams from [ilovemusic.de](https://il
 
 - If you're familiar with ts, go for it, simple js in esm is available otherwise.
 
-- If you have your own streaming source(s) and don't want ilovemusic channels, simply set `ilovemusic` in config to false.
+- If you have your own streaming source(s) and don't want ilovemusic channels, simply set `ilovemusic` to false.
 
-- You can add id of roles in config to restrict stream-switch access to admins/mods only.
+- You can add id of users in config to restrict stream-switch access to admins/mods only.
