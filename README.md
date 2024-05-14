@@ -10,7 +10,7 @@ A reliable 24/7 discord bot that streams from [ilovemusic.de](https://ilovemusic
 
 - Radio player controlled by buttons
 - Controls can be restricted to broadcasters
-- Auto-join (or reconnect) to voice channel
+- Auto-join (or reconnect) said voice channel
 - Autoplay next stream if current stream errors
 
 ## Drawbacks
