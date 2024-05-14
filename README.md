@@ -4,26 +4,33 @@
 
 ## Radio
 
-This is a reliable 24/7 discord bot that streams from [ilovemusic.de](https://ilovemusic.de/streams/) by default, including any supported direct stream links you provide manually. If you use a service like centova, shoutcast, or icecast and the stream doesn't work, try configuring your stream or using a different streaming format.
+A reliable 24/7 discord bot that streams from [ilovemusic.de](https://ilovemusic.de/streams/) by default, including any supported direct stream links you provide manually. If you use a service like centova, shoutcast, or icecast and the stream doesn't work, try configuring your stream or using a different streaming format.
 
-### Pros
+## Features
 
-- Low memory consumption
-- Ability to re-connect and stream last url
-- Easy stream-switch control from voice chat
+- Radio player controlled by buttons
+- Controls can be restricted to broadcasters
+- Auto-join (or reconnect) to voice channel
+- Autoplay next stream if current stream errors
 
-### Cons
+## Drawbacks
+
+By convention, for a community that just wants a 24/7 radio, the following limits apply:
 
 - Not meant to be fully customizable
-- Cannot have more than 75 streams in total
-- Support restricted to [GuildVoice](https://discord.js.org/docs/packages/discord.js/main/VoiceChannel:Class) channel only</li>
+- Support restricted to [GuildVoice](https://discord.js.org/docs/packages/discord.js/main/VoiceChannel:Class) channel only
+- Cannot have more than 75 streams (inclusive of ilovemusic streams if enabled)
+
+## Requirements
+
+- [Node.js](https://nodejs.org/en/download) v18 or above
+- Minimum 256MB of RAM
 
 ## Configuration
 
-- Configure the bot from [`./src/config.mts`](./src/config.mts) or [`./lib/config.mjs`](./lib/config.mjs)
+The bot can be easily configured from the [config.ts](./src/config.ts) file. If you are about to host it on a vps that supports starting from a bash file you can use the [start.sh](./start.sh) file. If not, you need to run the following commands:
 
-- If you're familiar with ts, go for it, simple js in esm is available otherwise.
+- `npm install` - to install necessary dependencies
+- `npm start` - to start the bot
 
-- If you have your own streaming source(s) and don't want ilovemusic channels, simply set `ilovemusic` to false.
-
-- You can add id of users in config to restrict stream-switch access to admins/mods only.
+If you get any errors related to `@discordjs/opus` or `zlib-sync`, follow the steps in this [node-gyp](https://github.com/nodejs/node-gyp) repository for your system, delete `node_modules` and `package-lock.json` file, reinstall nodejs and run the commands above again to fix it.

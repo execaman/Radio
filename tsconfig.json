@@ -1,14 +1,35 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "allowArbitraryExtensions": false,
+    "allowImportingTsExtensions": false,
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "allowUmdGlobalAccess": false,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "disableSizeLimit": true,
+    "esModuleInterop": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ESNext"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "newLine": "lf",
+    "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "outDir": "app",
+    "skipLibCheck": true,
     "strict": true,
-    "useUnknownInCatchVariables": false,
-    "module": "NodeNext",
-    "rootDir": "./src",
-    "noEmitOnError": true,
-    "outDir": "./lib",
     "target": "ESNext",
-    "skipLibCheck": true
-  }
+    "useDefineForClassFields": true,
+    "useUnknownInCatchVariables": false
+  },
+  "include": ["src"]
 }
