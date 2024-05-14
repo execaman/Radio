@@ -79,6 +79,7 @@ const player = Voice.createAudioPlayer({
 });
 
 player.on("error", () => {
+  console.log(`[stream] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
   if (player.state.status !== Voice.AudioPlayerStatus.Idle) player.stop(true);
 
   player.play(
