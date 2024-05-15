@@ -139,7 +139,7 @@ const joinVoiceChannel = async (voiceChannel?: Discord.VoiceChannel) => {
 
 const radioSelectOptions = () => {
   return channels.items
-    .slice(0, 100)
+    .slice(0, 75)
     .reduce<Discord.StringSelectMenuOptionBuilder[][]>((total, channel, index) => {
       const option = new Discord.StringSelectMenuOptionBuilder()
         .setLabel(channel.name.slice(0, 99))
@@ -189,13 +189,20 @@ const radioComponents = (): (
         .setCustomId("nextItem")
         .setStyle(Discord.ButtonStyle.Success)
         .setLabel("Next")
-        .setDisabled(!channels.next),
+        .setDisabled(!channels.next)
+    ),
 
+    new Discord.ActionRowBuilder<Discord.ButtonBuilder>().setComponents(
       new Discord.ButtonBuilder()
         .setCustomId("lastItem")
         .setStyle(Discord.ButtonStyle.Success)
         .setLabel("Last")
-        .setDisabled(channels.index === channels.items.length - 1)
+        .setDisabled(channels.index === channels.items.length - 1),
+
+      new Discord.ButtonBuilder()
+        .setStyle(Discord.ButtonStyle.Link)
+        .setLabel(channels.currentItem!.name.slice(0, 99))
+        .setURL(channels.currentItem!.url)
     )
   ];
 };
