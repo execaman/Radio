@@ -80,6 +80,8 @@ const player = Voice.createAudioPlayer({
 });
 
 const playAudioChannel = async (streamURL: string) => {
+  if (player.state.status !== Voice.AudioPlayerStatus.Idle) player.stop(true);
+
   try {
     player.play(
       Voice.createAudioResource((await axios.get(streamURL, { responseType: "stream" })).data)
@@ -91,7 +93,6 @@ const playAudioChannel = async (streamURL: string) => {
 
 player.on("error", async () => {
   console.log(`[stream] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
-  if (player.state.status !== Voice.AudioPlayerStatus.Idle) player.stop(true);
 
   await playAudioChannel(
     channels.next ? channels.nextItem!.streamURL : channels.currentItem!.streamURL
@@ -244,8 +245,6 @@ client.on(Discord.Events.InteractionCreate, async (interaction) => {
     }
     return;
   }
-
-  player.stop(true);
 
   if (interaction.isButton()) {
     const action = interaction.customId as
