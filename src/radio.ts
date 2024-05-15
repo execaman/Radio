@@ -21,14 +21,14 @@ export async function fetchRadioChannels(): Promise<RadioChannel[]> {
 
     const channel = [
       content.find("h1").text().trim(),
-      content.find("a:first-of-type").attr("href")?.slice(0, -4),
+      content.find("a:first-of-type").attr("href"),
       content.find("a:last-of-type").attr("href")
     ];
 
     if (channel.every((prop) => typeof prop === "string")) {
       channels.push({
         name: channel[0]!,
-        url: channel[1]!,
+        url: channel[1]!.slice(0, channel[1]!.lastIndexOf(".")),
         streamURL: channel[2]!
       });
     }

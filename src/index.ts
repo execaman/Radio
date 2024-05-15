@@ -1,3 +1,4 @@
+import { URL } from "node:url";
 import * as Discord from "discord.js";
 import * as Voice from "@discordjs/voice";
 import * as config from "./config.js";
@@ -44,7 +45,7 @@ const client = new Discord.Client({
   presence: {
     activities: [
       {
-        name: `v${Discord.version}`,
+        name: `v${Voice.version}`,
         type: Discord.ActivityType.Streaming,
         url: "https://twitch.tv/#"
       }
@@ -54,18 +55,17 @@ const client = new Discord.Client({
 
 const channels = new Queue(config.streamILoveMusic ? await fetchRadioChannels() : []);
 
-if (
-  config.otherRadioChannels.some(
-    (channel) =>
-      typeof channel.name !== "string" ||
-      typeof channel.url !== "string" ||
-      typeof channel.streamURL !== "string"
-  )
-) {
-  throw new Error("One of your custom radio channels is missing appropriate or required info");
+for (const channel of config.otherRadioChannels) {
+  if (typeof channel.name !== "string")
+    throw new Error("One of your channels does not have a name");
+  try {
+    new URL(channel.streamURL);
+    new URL(channel.url);
+  } catch {
+    throw new Error(`Channel '${channel.name}' does not have proper URLs`);
+  }
+  channels.items.push(channel);
 }
-
-channels.items.push(...config.otherRadioChannels);
 
 if (channels.items.length === 0) {
   throw new Error(
@@ -208,8 +208,6 @@ const radioComponents = (): (
 };
 
 client.once(Discord.Events.ClientReady, async () => {
-  if (!client.isReady()) return;
-
   client.application = await client.application!.fetch();
 
   if ("username" in client.application.owner!) {
@@ -229,14 +227,18 @@ client.once(Discord.Events.ClientReady, async () => {
 
   const message = (await textChannel.messages.fetch({ limit: 1, cache: false })).first();
 
-  if (!message || message.author.id !== client.user.id) {
-    if (textChannel.permissionsFor(client.user.id)?.has(Discord.PermissionFlagsBits.SendMessages)) {
+  if (!message || message.author.id !== client.user!.id) {
+    if (
+      textChannel.permissionsFor(client.user!.id)?.has(Discord.PermissionFlagsBits.SendMessages)
+    ) {
       await textChannel.send({
         components: radioComponents()
       });
     } else {
       console.log("[message] Can't send messages in said voice channel");
     }
+  } else {
+    await message.edit({ components: radioComponents() });
   }
 
   await joinVoiceChannel(voiceChannel);
