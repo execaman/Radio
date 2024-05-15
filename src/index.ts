@@ -1,6 +1,7 @@
 import * as Discord from "discord.js";
 import * as Voice from "@discordjs/voice";
 import * as config from "./config.js";
+import axios from "axios";
 import { Queue } from "./queue.js";
 import { fetchRadioChannels } from "./radio.js";
 
@@ -78,20 +79,28 @@ const player = Voice.createAudioPlayer({
   }
 });
 
-player.on("error", () => {
+const playAudioChannel = async (streamURL: string) => {
+  try {
+    player.play(
+      Voice.createAudioResource((await axios.get(streamURL, { responseType: "stream" })).data)
+    );
+  } catch {
+    player.emit("error");
+  }
+};
+
+player.on("error", async () => {
   console.log(`[stream] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
   if (player.state.status !== Voice.AudioPlayerStatus.Idle) player.stop(true);
 
-  player.play(
-    Voice.createAudioResource(
-      channels.next ? channels.nextItem!.streamURL : channels.currentItem!.streamURL
-    )
+  await playAudioChannel(
+    channels.next ? channels.nextItem!.streamURL : channels.currentItem!.streamURL
   );
 });
 
 player.on("stateChange", async (previous, current) => {
   if (current.status !== Voice.AudioPlayerStatus.Idle) return;
-  player.play(Voice.createAudioResource(channels.currentItem!.streamURL));
+  await playAudioChannel(channels.currentItem!.streamURL);
 });
 
 const joinVoiceChannel = async (voiceChannel?: Discord.VoiceChannel) => {
@@ -223,11 +232,18 @@ client.once(Discord.Events.ClientReady, async () => {
   }
 
   await joinVoiceChannel(voiceChannel);
-  player.play(Voice.createAudioResource(channels.currentItem!.streamURL));
+  await playAudioChannel(channels.currentItem!.streamURL);
 });
 
 client.on(Discord.Events.InteractionCreate, async (interaction) => {
-  if (!config.broadcasters.has(interaction.user.id)) return;
+  if (!config.broadcasters.has(interaction.user.id)) {
+    if (interaction.isRepliable()) {
+      await interaction.reply({
+        content: "You're not allowed to interact with these controls"
+      });
+    }
+    return;
+  }
 
   player.stop(true);
 
@@ -239,14 +255,18 @@ client.on(Discord.Events.InteractionCreate, async (interaction) => {
       | "nextItem"
       | "lastItem";
 
-    player.play(Voice.createAudioResource(channels[action]!.streamURL));
+    await interaction.deferUpdate();
 
-    await interaction.update({ components: radioComponents() });
+    await playAudioChannel(channels[action]!.streamURL);
+
+    await interaction.editReply({ components: radioComponents() });
   } else if (interaction.isStringSelectMenu()) {
     channels.index = parseInt(interaction.values[0]!);
 
-    player.play(Voice.createAudioResource(channels.currentItem!.streamURL));
-    await interaction.update({ components: radioComponents() });
+    await interaction.deferUpdate();
+
+    await playAudioChannel(channels.currentItem!.streamURL);
+    await interaction.editReply({ components: radioComponents() });
   }
 });
 
