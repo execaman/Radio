@@ -43,7 +43,7 @@ export const sourceILoveMusic = "https://ilovemusic.de/streams/";
  * export const otherRadioChannels: RadioChannel[] = [
  *   {
  *     name: "Channel Name",
- *     url: "URL to a webpage for this channel",
+ *     url: "URL to a webpage for this channel", // [optional]
  *     streamURL: "The url from which this channel can be streamed"
  *   }
  * ];
@@ -53,12 +53,12 @@ export const sourceILoveMusic = "https://ilovemusic.de/streams/";
  * export const otherRadioChannels: RadioChannel[] = [
  *   {
  *     name: "Channel 1",
- *     url: "channel 1 webpage url",
+ *     url: "channel 1 webpage url", // [optional]
  *     streamURL: "channel 1 stream url"
  *   },
  *   {
  *     name: "Channel 2",
- *     url: "channel 2 webpage url",
+ *     url: "channel 2 webpage url", // [optional]
  *     streamURL: "channel 2 stream url"
  *   }
  * ];

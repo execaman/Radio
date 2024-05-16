@@ -4,7 +4,7 @@ import { sourceILoveMusic } from "./config.js";
 
 export interface RadioChannel {
   name: string;
-  url: string;
+  url?: string;
   streamURL: string;
 }
 

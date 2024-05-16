@@ -60,7 +60,7 @@ for (const channel of config.otherRadioChannels) {
     throw new Error("One of your channels does not have a name");
   try {
     new URL(channel.streamURL);
-    new URL(channel.url);
+    if (channel.url) new URL(channel.url);
   } catch {
     throw new Error(`Channel '${channel.name}' does not have proper URLs`);
   }
@@ -92,7 +92,7 @@ const playAudioChannel = async (streamURL: string) => {
 };
 
 player.on("error", async () => {
-  console.log(`[stream] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
+  console.log(`[audio] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
 
   await playAudioChannel(
     channels.next ? channels.nextItem!.streamURL : channels.currentItem!.streamURL
@@ -201,13 +201,20 @@ const radioComponents = (): (
 
       new Discord.ButtonBuilder()
         .setStyle(Discord.ButtonStyle.Link)
-        .setLabel(channels.currentItem!.name.slice(0, 99))
-        .setURL(channels.currentItem!.url)
+        .setLabel(
+          channels.currentItem!.url ?
+            channels.currentItem!.name.slice(0, 99)
+          : "Channel WebPage Unavailable"
+        )
+        .setURL(channels.currentItem!.url || "https://www.google.com/")
+        .setDisabled(!channels.currentItem!.url)
     )
   ];
 };
 
 client.once(Discord.Events.ClientReady, async () => {
+  console.log(`[client] Logged in as ${client.user!.displayName}`);
+
   client.application = await client.application!.fetch();
 
   if ("username" in client.application.owner!) {
@@ -242,7 +249,10 @@ client.once(Discord.Events.ClientReady, async () => {
   }
 
   await joinVoiceChannel(voiceChannel);
+  console.log(`[voice] Connected to ${voiceChannel.name}`);
+
   await playAudioChannel(channels.currentItem!.streamURL);
+  console.log(`[audio] Started playing ${channels.currentItem!.name}`);
 });
 
 client.on(Discord.Events.InteractionCreate, async (interaction) => {
