@@ -1,298 +1,245 @@
-import { URL } from "node:url";
-import * as Discord from "discord.js";
-import * as Voice from "@discordjs/voice";
-import * as config from "./config.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonInteraction,
+  ButtonStyle,
+  ChannelType,
+  Client,
+  Events,
+  GatewayIntentBits,
+  MessageCreateOptions,
+  MessageEditOptions,
+  StageChannel,
+  StringSelectMenuBuilder,
+  StringSelectMenuInteraction,
+  StringSelectMenuOptionBuilder
+} from "discord.js";
+import { activity, botToken, otherRadioChannels, streamILoveMusic, textChannelId, voiceChannelId } from "./config";
+import {
+  AudioPlayerStatus,
+  createAudioPlayer,
+  createAudioResource,
+  joinVoiceChannel,
+  NoSubscriberBehavior,
+  VoiceConnection,
+  VoiceConnectionState,
+  VoiceConnectionStatus
+} from "@discordjs/voice";
+import { Queue } from "./queue";
+import { fetchRadioChannels } from "./radio";
+import { inspect } from "node:util";
 import axios from "axios";
-import { Queue } from "./queue.js";
-import { fetchRadioChannels } from "./radio.js";
 
-const client = new Discord.Client({
-  intents: [Discord.GatewayIntentBits.Guilds, Discord.GatewayIntentBits.GuildVoiceStates],
-  partials: [
-    Discord.Partials.Channel,
-    Discord.Partials.GuildMember,
-    Discord.Partials.GuildScheduledEvent,
-    Discord.Partials.Message,
-    Discord.Partials.Reaction,
-    Discord.Partials.ThreadMember,
-    Discord.Partials.User
-  ],
-  makeCache: Discord.Options.cacheWithLimits({
-    AutoModerationRuleManager: 0,
-    BaseGuildEmojiManager: 0,
-    DMMessageManager: 0,
-    GuildBanManager: 0,
-    GuildEmojiManager: 0,
-    GuildForumThreadManager: 0,
-    GuildInviteManager: 0,
-    GuildMemberManager: {
-      maxSize: 1,
-      keepOverLimit: (member) => member.id === member.client.user.id
-    },
-    GuildMessageManager: 0,
-    GuildScheduledEventManager: 0,
-    GuildStickerManager: 0,
-    GuildTextThreadManager: 0,
-    MessageManager: 0,
-    PresenceManager: 0,
-    ReactionManager: 0,
-    ReactionUserManager: 0,
-    StageInstanceManager: 0,
-    ThreadManager: 0,
-    ThreadMemberManager: 0,
-    UserManager: 0
-  }),
-  presence: {
-    activities: [
-      {
-        name: `v${Voice.version}`,
-        type: Discord.ActivityType.Streaming,
-        url: "https://twitch.tv/#"
-      }
-    ]
-  }
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  presence: { activities: [activity] }
 });
 
-const channels = new Queue(config.streamILoveMusic ? await fetchRadioChannels() : []);
+const channels = new Queue(streamILoveMusic ? await fetchRadioChannels() : []);
 
-for (const channel of config.otherRadioChannels) {
-  if (typeof channel.name !== "string")
-    throw new Error("One of your channels does not have a name");
-  try {
-    new URL(channel.streamURL);
-    if (channel.url) new URL(channel.url);
-  } catch {
-    throw new Error(`Channel '${channel.name}' does not have proper URLs`);
+if (Array.isArray(otherRadioChannels) && otherRadioChannels.length !== 0) {
+  const nonEmptyString = (input: unknown): input is string => {
+    return typeof input === "string" && input.length !== 0;
+  };
+  for (const channel of otherRadioChannels) {
+    if (nonEmptyString(channel.name) && nonEmptyString(channel.streamURL)) {
+      channels.items.push(channel);
+    } else {
+      console.log(`Invalid channel definition ${inspect(channel, { depth: -1 })}`);
+    }
   }
-  channels.items.push(channel);
 }
 
 if (channels.items.length === 0) {
-  throw new Error(
-    "No channels to stream from, either add custom channels or turn on 'streamILoveMusic' from config"
-  );
+  throw new Error("No channels to stream from; please add channels manually or enable 'streamILoveMusic' in config");
 }
 
-const player = Voice.createAudioPlayer({
+if (channels.items.length > 75) {
+  throw new Error("Sorry, only a maximum of 75 radio channels is supported at the moment");
+}
+
+const player = createAudioPlayer({
   behaviors: {
-    noSubscriber: Voice.NoSubscriberBehavior.Play
+    noSubscriber: NoSubscriberBehavior.Play
   }
 });
 
-const playAudioChannel = async (streamURL: string) => {
-  if (player.state.status !== Voice.AudioPlayerStatus.Idle) player.stop(true);
-
+const streamRadioChannel = async (streamURL = channels.currentItem!.streamURL) => {
+  if (player.state.status !== AudioPlayerStatus.Idle) {
+    player.stop(true);
+  }
   try {
-    player.play(
-      Voice.createAudioResource((await axios.get(streamURL, { responseType: "stream" })).data)
-    );
+    const response = await axios.request({ method: "GET", url: streamURL, responseType: "stream" });
+    player.play(createAudioResource(response.data));
   } catch {
-    player.emit("error");
+    console.log(`Failed to play ${channels.currentItem!.name} ${channels.currentItem!.streamURL}`);
+    streamRadioChannel(channels.nextItem?.streamURL ?? channels.firstItem!.streamURL);
   }
 };
 
-player.on("error", async () => {
-  console.log(`[audio] Failed to play ${channels.currentItem!.name} ${channels.currentItem!.url}`);
+const updateStageInstance = async (stageChannel?: StageChannel) => {
+  const channel = stageChannel || client.channels.cache.get(voiceChannelId);
+  if (!channel || channel.type !== ChannelType.GuildStageVoice) return;
+  const topic = channels.currentItem!.name;
+  try {
+    await channel.guild.stageInstances.edit(channel, { topic });
+  } catch {
+    await channel.guild.stageInstances.create(channel, { topic });
+  }
+};
 
-  await playAudioChannel(
-    channels.next ? channels.nextItem!.streamURL : channels.currentItem!.streamURL
-  );
-});
+async function onStateChange(this: VoiceConnection, _previous: VoiceConnectionState, current: VoiceConnectionState) {
+  switch (current.status) {
+    case VoiceConnectionStatus.Ready: {
+      const channel = client.channels.cache.get(voiceChannelId)!;
+      if (channel.type === ChannelType.GuildStageVoice) {
+        const voiceState = await channel.guild.voiceStates.fetch("@me");
+        await voiceState.setSuppressed(false);
+        await updateStageInstance(channel);
+      }
+      this.emit("connected");
+      break;
+    }
 
-player.on("stateChange", async (previous, current) => {
-  if (current.status !== Voice.AudioPlayerStatus.Idle) return;
-  await playAudioChannel(channels.currentItem!.streamURL);
-});
+    case VoiceConnectionStatus.Disconnected: {
+      if (this.rejoinAttempts !== 3) this.rejoin();
+      else {
+        const channel = client.channels.cache.get(voiceChannelId);
+        this.emit("error", new Error(`Failed to rejoin ${channel} within 3 attempts`));
+        this.removeAllListeners();
+        this.destroy();
+      }
+      break;
+    }
+  }
+}
 
-const joinVoiceChannel = async (voiceChannel?: Discord.VoiceChannel) => {
-  const channel = voiceChannel || (await client.channels.fetch(config.voiceChannelId));
+const createVoiceConnection = async () => {
+  const channel = client.channels.cache.get(voiceChannelId);
 
-  if (!channel || channel.type !== Discord.ChannelType.GuildVoice || !channel.joinable) {
-    throw new Error(
-      !channel ? "Channel not found. Is the bot in your server with proper permissions?"
-      : channel.type !== Discord.ChannelType.GuildVoice ?
-        "Channel should be a general voice (not stage) channel"
-      : "The bot does not have permission to join said voice channel"
-    );
+  if (!channel) {
+    throw new Error("Voice channel not found");
+  }
+  if (!channel.isVoiceBased()) {
+    throw new Error(`${channel} is not a voice based channel`);
+  }
+  if (!channel.joinable) {
+    throw new Error(`Insufficient permissions to join ${channel}`);
   }
 
-  const connection = Voice.joinVoiceChannel({
+  const connection = joinVoiceChannel({
+    adapterCreator: channel.guild.voiceAdapterCreator,
     channelId: channel.id,
     guildId: channel.guildId,
-    adapterCreator: channel.guild.voiceAdapterCreator
-  });
-
-  connection.on("error", console.error.bind(null, "[voice]"));
-  connection.on("stateChange", async (previous, current) => {
-    if (
-      current.status === Voice.VoiceConnectionStatus.Destroyed ||
-      current.status === Voice.VoiceConnectionStatus.Disconnected
-    ) {
-      connection.removeAllListeners();
-      await joinVoiceChannel();
-    }
+    selfDeaf: true,
+    selfMute: false
   });
 
   connection.subscribe(player);
-  return connection;
-};
+  connection.on("error", console.error);
+  connection.on("stateChange", onStateChange);
 
-const radioSelectOptions = () => {
-  return channels.items
-    .slice(0, 75)
-    .reduce<Discord.StringSelectMenuOptionBuilder[][]>((total, channel, index) => {
-      const option = new Discord.StringSelectMenuOptionBuilder()
-        .setLabel(channel.name.slice(0, 99))
-        .setValue(index.toString())
-        .setDefault(index === channels.index);
-
-      if (index % 25 === 0) total.push([option]);
-      else total.at(-1)!.push(option);
-
-      return total;
-    }, []);
-};
-
-const radioComponents = (): (
-  | Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>
-  | Discord.ActionRowBuilder<Discord.ButtonBuilder>
-)[] => {
-  return [
-    ...radioSelectOptions().map((options, index) =>
-      new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().setComponents(
-        new Discord.StringSelectMenuBuilder()
-          .setCustomId(`radio_select_${index}`)
-          .setPlaceholder(`Radio Channels ${index + 1}`)
-          .setOptions(options)
-      )
-    ),
-
-    new Discord.ActionRowBuilder<Discord.ButtonBuilder>().setComponents(
-      new Discord.ButtonBuilder()
-        .setCustomId("firstItem")
-        .setStyle(Discord.ButtonStyle.Success)
-        .setLabel("First")
-        .setDisabled(channels.index === 0),
-
-      new Discord.ButtonBuilder()
-        .setCustomId("previousItem")
-        .setStyle(Discord.ButtonStyle.Success)
-        .setLabel("Previous")
-        .setDisabled(!channels.previous),
-
-      new Discord.ButtonBuilder()
-        .setCustomId("randomItem")
-        .setStyle(Discord.ButtonStyle.Success)
-        .setLabel("Random"),
-
-      new Discord.ButtonBuilder()
-        .setCustomId("nextItem")
-        .setStyle(Discord.ButtonStyle.Success)
-        .setLabel("Next")
-        .setDisabled(!channels.next)
-    ),
-
-    new Discord.ActionRowBuilder<Discord.ButtonBuilder>().setComponents(
-      new Discord.ButtonBuilder()
-        .setCustomId("lastItem")
-        .setStyle(Discord.ButtonStyle.Success)
-        .setLabel("Last")
-        .setDisabled(channels.index === channels.items.length - 1),
-
-      new Discord.ButtonBuilder()
-        .setStyle(Discord.ButtonStyle.Link)
-        .setLabel(
-          channels.currentItem!.url ?
-            channels.currentItem!.name.slice(0, 99)
-          : "Channel WebPage Unavailable"
-        )
-        .setURL(channels.currentItem!.url || "https://www.google.com/")
-        .setDisabled(!channels.currentItem!.url)
-    )
-  ];
-};
-
-client.once(Discord.Events.ClientReady, async () => {
-  console.log(`[client] Logged in as ${client.user!.displayName}`);
-
-  client.application = await client.application!.fetch();
-
-  if ("username" in client.application.owner!) {
-    config.broadcasters.add(client.application.owner!.id);
-  } else {
-    client.application.owner!.members.forEach((member, id) => {
-      config.broadcasters.add(id);
-    });
-  }
-
-  const voiceChannel = (await client.channels.fetch(config.voiceChannelId)) as Discord.VoiceChannel;
-
-  const textChannel =
-    typeof config.textChannelId === "string" && config.textChannelId.length > 0 ?
-      ((await client.channels.fetch(config.textChannelId)) as Discord.GuildTextBasedChannel)
-    : voiceChannel;
-
-  const message = (await textChannel.messages.fetch({ limit: 1, cache: false })).first();
-
-  if (!message || message.author.id !== client.user!.id) {
-    if (
-      textChannel.permissionsFor(client.user!.id)?.has(Discord.PermissionFlagsBits.SendMessages)
-    ) {
-      await textChannel.send({
-        components: radioComponents()
-      });
-    } else {
-      console.log("[message] Can't send messages in said voice channel");
-    }
-  } else {
-    await message.edit({ components: radioComponents() });
-  }
-
-  await joinVoiceChannel(voiceChannel);
-  console.log(`[voice] Connected to ${voiceChannel.name}`);
-
-  await playAudioChannel(channels.currentItem!.streamURL);
-  console.log(`[audio] Started playing ${channels.currentItem!.name}`);
-});
-
-client.on(Discord.Events.InteractionCreate, async (interaction) => {
-  if (!config.broadcasters.has(interaction.user.id)) {
-    if (interaction.isRepliable()) {
-      await interaction.reply({
-        content: "You're not allowed to interact with these controls"
-      });
-    }
-    return;
-  }
-
-  if (interaction.isButton()) {
-    const action = interaction.customId as
-      | "firstItem"
-      | "previousItem"
-      | "randomItem"
-      | "nextItem"
-      | "lastItem";
-
-    await interaction.deferUpdate();
-
-    await playAudioChannel(channels[action]!.streamURL);
-
-    await interaction.editReply({ components: radioComponents() });
-  } else if (interaction.isStringSelectMenu()) {
-    channels.index = parseInt(interaction.values[0]!);
-
-    await interaction.deferUpdate();
-
-    await playAudioChannel(channels.currentItem!.streamURL);
-    await interaction.editReply({ components: radioComponents() });
-  }
-});
-
-for (const event of ["beforeExit", "SIGINT", "SIGHUP"]) {
-  process.once(event, async () => {
-    if (client.isReady()) await client.destroy();
-    process.exit(0);
+  return new Promise((resolve) => {
+    connection.once("connected", resolve);
   });
+};
+
+const playerControls = () => {
+  const radioSelectOptions = channels.items.reduce<StringSelectMenuOptionBuilder[][]>((options, channel, index) => {
+    const option = new StringSelectMenuOptionBuilder().setLabel(channel.name).setValue(index.toString());
+    if (index === channels.index) option.setDefault(true);
+    if (index % 25 === 0) options.push([option]);
+    else options.at(-1)!.push(option);
+    return options;
+  }, []);
+
+  const buttonRow1 = [
+    new ButtonBuilder()
+      .setCustomId("firstItem")
+      .setStyle(ButtonStyle.Success)
+      .setLabel("First")
+      .setDisabled(channels.index === 0),
+
+    new ButtonBuilder()
+      .setCustomId("previousItem")
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Previous")
+      .setDisabled(!channels.previous),
+
+    new ButtonBuilder().setCustomId("randomItem").setStyle(ButtonStyle.Success).setLabel("Random"),
+
+    new ButtonBuilder()
+      .setCustomId("nextItem")
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Next")
+      .setDisabled(!channels.next)
+  ];
+
+  const buttonRow2 = [
+    new ButtonBuilder()
+      .setCustomId("lastItem")
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Last")
+      .setDisabled(channels.index === channels.items.length - 1),
+
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setLabel(channels.currentItem!.url ? channels.currentItem!.name : "Channel WebPage Unavailable")
+      .setURL(channels.currentItem!.url || "https://www.google.com/")
+      .setDisabled(!channels.currentItem!.url)
+  ];
+
+  return {
+    content: "",
+    embeds: [],
+    components: [
+      ...radioSelectOptions.map((options, index) =>
+        new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId(`radio_select_${index}`)
+            .setPlaceholder(`Radio Channels ${index + 1}`)
+            .addOptions(options)
+        )
+      ),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(buttonRow1),
+      new ActionRowBuilder<ButtonBuilder>().addComponents(buttonRow2)
+    ]
+  } satisfies MessageCreateOptions & MessageEditOptions;
+};
+
+client.once(Events.ClientReady, async () => {
+  await createVoiceConnection();
+  const textChannel = client.channels.cache.get(textChannelId) ?? client.channels.cache.get(voiceChannelId)!;
+  if (textChannel.isDMBased() || textChannel.isThread() || !textChannel.isSendable()) {
+    throw new Error(`${textChannel} is not a text based channel`);
+  }
+  const message = (await textChannel.messages.fetch({ limit: 1 })).first();
+  if (!message || message.system || message.author.id !== client.user!.id) {
+    await textChannel.send(playerControls());
+  } else {
+    await message.edit(playerControls());
+  }
+  await streamRadioChannel();
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    channels[interaction.customId as "firstItem" | "previousItem" | "randomItem" | "nextItem" | "lastItem"];
+  } else if (interaction.isStringSelectMenu()) {
+    channels.index = Number(interaction.values[0]);
+  }
+  await (interaction as ButtonInteraction | StringSelectMenuInteraction).update(playerControls());
+  await updateStageInstance();
+  await streamRadioChannel();
+});
+
+const onExit = async () => {
+  await client.destroy();
+  process.exit(0);
+};
+
+for (const exitEvent of ["beforeExit", "SIGINT", "SIGHUP"]) {
+  process.on(exitEvent, onExit);
 }
 
-client.login(config.botToken);
+client.login(botToken);

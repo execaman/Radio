@@ -1,5 +1,5 @@
 import axios from "axios";
-import { load } from "cheerio";
+import { load } from "cheerio/slim";
 import { sourceILoveMusic } from "./config.js";
 
 export interface RadioChannel {
@@ -8,35 +8,28 @@ export interface RadioChannel {
   streamURL: string;
 }
 
-export async function fetchRadioChannels(): Promise<RadioChannel[]> {
-  const { data } = await axios.get(sourceILoveMusic).catch(() => {
-    throw new Error(`Failed to fetch channels from ${sourceILoveMusic}`);
+export const fetchRadioChannels = async () => {
+  const response = await axios.request({ method: "GET", url: sourceILoveMusic }).catch(() => {
+    throw new Error(`Couldn't get any response from '${sourceILoveMusic}'`);
   });
 
-  const $ = load(data);
+  const $ = load(response.data);
   const channels: RadioChannel[] = [];
 
-  $("div.content:has(:any-link)").each((index, item) => {
+  $("div.content:has(:any-link)").each((_index, item) => {
     const content = $(item);
 
-    const channel = [
-      content.find("h1").text().trim(),
-      content.find("a:first-of-type").attr("href"),
-      content.find("a:last-of-type").attr("href")
-    ];
+    const name = content.find("h1").text().trim();
+    const url = content.find("a:first-of-type").attr("href");
+    const streamURL = content.find("a:last-of-type").attr("href");
 
-    if (channel.every((prop) => typeof prop === "string")) {
-      channels.push({
-        name: channel[0]!,
-        url: channel[1]!.slice(0, channel[1]!.lastIndexOf(".")),
-        streamURL: channel[2]!
-      });
+    if (name.length !== 0 && typeof url === "string" && typeof streamURL === "string") {
+      channels.push({ name, url, streamURL });
     }
   });
 
   if (channels.length === 0) {
     throw new Error(`No channels found on ${sourceILoveMusic}; the site has probably updated`);
   }
-
   return channels;
-}
+};

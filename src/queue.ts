@@ -1,10 +1,8 @@
-export class Queue<Item = any> {
+export class Queue<Item> {
+  items: Item[];
   index: number = 0;
-  items: Item[] = null!;
 
-  constructor(items: Item[] = []) {
-    if (!Array.isArray(items))
-      throw new TypeError(`Expected an array of items, got '${typeof items}'`);
+  constructor(items: Item[]) {
     this.items = items;
   }
 
@@ -22,7 +20,7 @@ export class Queue<Item = any> {
 
   get previousItem() {
     if (!this.previous) return;
-    return this.items[(this.index -= 1)];
+    return this.items[--this.index];
   }
 
   get currentItem() {
@@ -31,7 +29,7 @@ export class Queue<Item = any> {
 
   get nextItem() {
     if (!this.next) return;
-    return this.items[(this.index += 1)];
+    return this.items[++this.index];
   }
 
   get lastItem() {

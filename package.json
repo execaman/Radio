@@ -1,28 +1,29 @@
 {
-  "$schema": "https://json.schemastore.org/package",
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "radio",
   "type": "module",
+  "version": "1.0.0",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "client": "cd app && node index.js",
-    "start": "npm run build && npm run client",
-    "format": "prettier --log-level error -w src"
+    "deps": "ncu -u && npm update",
+    "build": "tsup --config tsup.config.ts",
+    "start": "node app",
+    "format": "prettier --log-level error -w ."
   },
   "dependencies": {
     "@discordjs/opus": "^0.9.0",
-    "@discordjs/voice": "^0.17.0",
-    "axios": "^1.6.8",
+    "@discordjs/voice": "^0.18.0",
+    "axios": "^1.7.9",
     "bufferutil": "^4.0.8",
-    "cheerio": "^1.0.0-rc.12",
-    "discord.js": "^14.15.2",
-    "ffmpeg-static": "^5.2.0",
-    "libsodium-wrappers": "^0.7.13",
-    "utf-8-validate": "^6.0.4",
+    "cheerio": "^1.0.0",
+    "discord.js": "^14.16.3",
+    "sodium-native": "^4.3.1",
     "zlib-sync": "^0.1.9"
   },
   "devDependencies": {
-    "@types/node": "^20.12.11",
-    "prettier": "^3.2.5",
-    "typescript": "^5.4.5"
+    "@types/node": "^22.10.2",
+    "npm-check-updates": "^17.1.11",
+    "prettier": "^3.4.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
   }
 }

@@ -1,4 +1,3 @@
 npm install
-npx tsc -p tsconfig.json
-cd app
-node index.js
+npx tsup --config tsup.config.ts
+node app

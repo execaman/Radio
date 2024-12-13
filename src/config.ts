@@ -1,10 +1,23 @@
+import { ActivityType } from "discord.js";
+import { version } from "@discordjs/voice";
+
 import type { RadioChannel } from "./radio.js";
+import type { ActivitiesOptions } from "discord.js";
 
 /**
  * Discord Bot Token. To know how to create and get your bot's token
  * visit https://discordjs.guide/preparations/setting-up-a-bot-application.html
  */
 export const botToken = "";
+
+/**
+ * Set the bot's activity (status)
+ */
+export const activity: ActivitiesOptions = {
+  name: `v${version}`, // status text
+  type: ActivityType.Streaming, // status type: https://discord-api-types.dev/api/discord-api-types-v10/enum/ActivityType
+  url: "https://twitch.tv/#" // twitch or youtube url (only for streaming type)
+};
 
 /**
  * Server general voice (not stage) channel id
