@@ -71,6 +71,7 @@ const streamRadioChannel = async (streamURL = channels.currentItem!.streamURL) =
   try {
     const response = await axios.request({ method: "GET", url: streamURL, responseType: "stream" });
     player.play(createAudioResource(response.data));
+    console.log(`[audio] :: Streaming ${streamURL}`);
   } catch {
     console.log(`Failed to play ${channels.currentItem!.name} ${channels.currentItem!.streamURL}`);
     streamRadioChannel(channels.nextItem?.streamURL ?? channels.firstItem!.streamURL);
@@ -92,6 +93,7 @@ async function onStateChange(this: VoiceConnection, _previous: VoiceConnectionSt
   switch (current.status) {
     case VoiceConnectionStatus.Ready: {
       const channel = client.channels.cache.get(voiceChannelId)!;
+      console.log(`[voice] :: Connected to ${channel}`);
       if (channel.type === ChannelType.GuildStageVoice) {
         const voiceState = await channel.guild.voiceStates.fetch("@me");
         await voiceState.setSuppressed(false);
@@ -208,6 +210,7 @@ const playerControls = () => {
 };
 
 client.once(Events.ClientReady, async () => {
+  console.log(`[client] :: Logged in as ${client.user!.tag}`);
   await createVoiceConnection();
   const textChannel = client.channels.cache.get(textChannelId) ?? client.channels.cache.get(voiceChannelId)!;
   if (textChannel.isDMBased() || textChannel.isThread() || !textChannel.isSendable()) {
