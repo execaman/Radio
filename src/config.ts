@@ -43,6 +43,12 @@ export const textChannelId = "";
 export const broadcasters = new Set<string>([]);
 
 /**
+ * The message to be shown for non-broadcasting members
+ * if they attempt to change streams through menus/buttons
+ */
+export const nonBroadcastingMemberNotice = "You're not allowed to change the stream";
+
+/**
  * Set 'streamILoveMusic' to 'true' for streaming
  * from 'sourceILoveMusic'; 'false' otherwise to
  * avoid streaming channels from ilovemusic.de

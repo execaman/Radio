@@ -9,12 +9,22 @@ import {
   GatewayIntentBits,
   MessageCreateOptions,
   MessageEditOptions,
+  MessageFlags,
   StageChannel,
   StringSelectMenuBuilder,
   StringSelectMenuInteraction,
   StringSelectMenuOptionBuilder
 } from "discord.js";
-import { activity, botToken, otherRadioChannels, streamILoveMusic, textChannelId, voiceChannelId } from "./config";
+import {
+  activity,
+  botToken,
+  broadcasters,
+  nonBroadcastingMemberNotice,
+  otherRadioChannels,
+  streamILoveMusic,
+  textChannelId,
+  voiceChannelId
+} from "./config";
 import {
   AudioPlayerStatus,
   createAudioPlayer,
@@ -77,6 +87,10 @@ const streamRadioChannel = async (streamURL = channels.currentItem!.streamURL) =
     streamRadioChannel(channels.nextItem?.streamURL ?? channels.firstItem!.streamURL);
   }
 };
+
+player.on("error", () => {
+  streamRadioChannel();
+});
 
 const updateStageInstance = async (stageChannel?: StageChannel) => {
   const channel = stageChannel || client.channels.cache.get(voiceChannelId);
@@ -211,26 +225,48 @@ const playerControls = () => {
 
 client.once(Events.ClientReady, async () => {
   console.log(`[client] :: Logged in as ${client.user!.tag}`);
+
+  client.application = await client.application!.fetch();
+
+  if ("username" in client.application.owner!) {
+    broadcasters.add(client.application.owner.id);
+  } else {
+    client.application.owner!.members.forEach((_member, id) => broadcasters.add(id));
+  }
+
   await createVoiceConnection();
+
   const textChannel = client.channels.cache.get(textChannelId) ?? client.channels.cache.get(voiceChannelId)!;
+
   if (textChannel.isDMBased() || textChannel.isThread() || !textChannel.isSendable()) {
     throw new Error(`${textChannel} is not a text based channel`);
   }
+
   const message = (await textChannel.messages.fetch({ limit: 1 })).first();
+
   if (!message || message.system || message.author.id !== client.user!.id) {
     await textChannel.send(playerControls());
   } else {
     await message.edit(playerControls());
   }
+
   await streamRadioChannel();
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isRepliable()) return;
+
+  if (!broadcasters.has(interaction.user.id)) {
+    await interaction.reply({ content: nonBroadcastingMemberNotice, flags: [MessageFlags.Ephemeral] });
+    return;
+  }
+
   if (interaction.isButton()) {
     channels[interaction.customId as "firstItem" | "previousItem" | "randomItem" | "nextItem" | "lastItem"];
   } else if (interaction.isStringSelectMenu()) {
     channels.index = Number(interaction.values[0]);
   }
+
   await (interaction as ButtonInteraction | StringSelectMenuInteraction).update(playerControls());
   await updateStageInstance();
   await streamRadioChannel();
